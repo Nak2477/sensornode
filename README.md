@@ -1,29 +1,37 @@
-# SensorNode HTTP POST Client
+# Smart Sensor Node
 
-En ren och fokuserad C-applikation som demonstrerar TCP socket-kommunikation, HTTP POST-förfrågningar, funktionspekare och pekare till pekare.
+En IoT-sensor som mäter temperatur och skickar data till molnservrar med nätverksåterställning. Utvecklad enligt kravspecifikation för periodiska mätningar med databevarande vid nätverksavbrott.
 
 ## Funktioner
 
-- **TCP Socket-anslutningar**: Ansluter till servrar via TCP (example.com port 80, httpbin.org)
-- **HTTP POST-förfrågningar**: Skickar JSON-formaterad sensordata till servrar
-- **Funktionspekare**: Använder funktionspekare för olika responshanteringsfunktioner
-- **Pekare till pekare**: Demonstrerar `char **argv` och dynamiskt tilldelade stränglister
-- **Modulär design**: Separata .c och .h-filer för olika funktionaliteter
+- **Temperatursensor**: Simulerar realistiska temperaturavläsningar med drift och brus
+- **Periodiska mätningar**: Automatiska mätningar var 60:e sekund
+- **Nätverksåterställning**: Sparar data lokalt vid nätverksfel, fortsätter drift
+- **HTTP POST-kommunikation**: Skickar JSON-data via TCP/IP till molnservrar
+- **Lokal datalagring**: Textfil-backup för databevarande vid avbrott
+- **Kontinuerlig drift**: Både enkelmätningar och kontinuerlig övervakningsläge
 
 ## Projektstruktur
 
 ```
 sensornode/
-├── Makefile
-├── README.md
-├── include/
-│   └── http_client.h      # Funktionsdeklarationer och strukturer
-└── src/
-    ├── main.c             # Huvudprogram
-    ├── tcp_client.c       # TCP socket-funktionalitet
-    ├── data_formatter.c   # JSON/XML formatering av sensordata
-    ├── handlers.c         # Funktionspekare för response-hantering
-    └── pointer_utils.c    # Pekare-till-pekare funktionalitet
+├── Makefile              # Byggkonfiguration med GCC och pedantic flags
+├── README.md             # Projektdokumentation
+├── include/              # Header-filer
+│   ├── sensor.h          # Huvudstrukturer, funktionsdeklarationer och function pointers
+│   ├── http.h            # HTTP-klient strukturer och funktioner
+│   └── tcp.h             # TCP socket-funktioner
+├── src/                  # Källkodsfiler
+│   ├── main.c            # Huvudprogram med kommandoradshantering (char **argv)
+│   ├── sensor.c          # Sensordata, JSON-formatering och nätverkskommunikation
+│   ├── http_client.c     # HTTP POST-implementering för httpbin.org
+│   └── tcp_socket.c      # TCP socket-hantering och serveranslutning
+├── build/                # Byggda filer (skapas automatiskt)
+│   └── sensornode        # Körbar fil
+├── obj/                  # Objekt-filer från kompilering (skapas automatiskt)
+│   └── *.o               # Kompilerade objektfiler
+└── bin/                  # Backup-data (skapas vid nätverksfel)
+    └── saved_temp.txt    # Lokal datalagring vid nätverksavbrott
 ```
 
 ## Kompilering
@@ -32,105 +40,180 @@ sensornode/
 # Kompilera hela projektet
 make
 
-# Kompilera och kör med standardparametrar
-make run
+# Eller kompilera och rensa i ett steg
+make clean && make
 
 # Rensa byggfiler
 make clean
-
-# Visa alla tillgängliga mål
-make info
 ```
 
 ## Användning
 
+### Kontinuerlig sensorövervakning (rekommenderat)
 ```bash
-# Grundläggande användning
-./bin/sensornode
+# Starta kontinuerliga mätningar var 60:e sekund
+./build/sensornode --continuous
 
-# Med specifika parametrar
-./bin/sensornode [handler] [temperatur]
-
-# Exempel
-./bin/sensornode print 25.3
-./bin/sensornode log 18.7
-
-# Visa hjälp
-./bin/sensornode --help
+# Tryck Ctrl+C för att stoppa
 ```
 
-### Parametrar
+### Enkelmätningar
+```bash
+# En automatisk sensormätning
+./build/sensornode
 
-- **handler**: `print` eller `log` (default: print)
-- **temperatur**: Temperaturvärde i Celsius (default: 23.5)
+# En mätning med specifik temperatur  
+./build/sensornode --single 25.3
 
-## Funktionspekare
+# Kontinuerliga mätningar var 60:e sekund
+./build/sensornode --continuous
 
-Programmet demonstrerar funktionspekare genom:
+# Visa hjälp och alla alternativ
+./build/sensornode --help
+```
 
-- **Response handlers**: `print_response_handler()` och `log_response_handler()`
-- **Error handlers**: `default_error_handler()`
+### Kommandoradsalternativ
 
-Användaren kan välja vilka funktioner som ska användas via kommandoradsparametrar.
+- **`--continuous, -c`**: Kontinuerliga mätningar var 60:e sekund
+- **`--single [temp]`**: En enskild mätning (standard: automatisk sensor)  
+- **`--help, -h`**: Visa hjälp och användning
 
-## Pekare till pekare
+## Nätverksåterställning
 
-Programmet demonstrerar pekare till pekare genom:
+Systemet hanterar nätverksfel elegant:
 
-- **`char **argv`**: Kommandoradsargument
-- **Dynamiska stränglister**: `parse_arguments()` funktionalitet
-- **Strängarray-hantering**: `free_string_array()` för minneshantering
+- **Normal drift**: Data skickas direkt till server via HTTP POST
+- **Nätverksfel**: Data sparas lokalt i `saved_temp.txt`
+- **Automatisk återställning**: Fortsätter mätningar även vid långvariga avbrott
+- **Databevarande**: Ingen data går förlorad vid kortare nätverksavbrott
 
-## HTTP POST Format
+```bash
+# Vid nätverksfel skapas backup-fil
+cat bin/saved_temp.txt
+id:node001temp:23.4time:2025-11-11T18:25:35Z
+id:node001temp:22.5time:2025-11-11T18:26:21Z
+```
 
-Programmet skickar sensordata i följande JSON-format:
+## JSON-dataformat
+
+Sensordata skickas enligt kravspecifikation i följande JSON-format:
 
 ```json
 {
-    "device": "UUID",
-    "time": "<timestamp>",
-    "temperature": "<temperature>°C"
+    "device_id": "node001",
+    "temperature": 23.4,
+    "timestamp": "2025-11-10T10:15:00Z"
 }
 ```
 
-## Testservrar
+**Fältbeskrivning:**
+- **device_id**: Unik identifierare för sensornoden (node001)
+- **temperature**: Temperaturvärde i Celsius (numeriskt värde)
+- **timestamp**: ISO 8601-formaterad tidsstämpel i UTC
 
-- **httpbin.org**: Primär testserver för HTTP POST-förfrågningar
-- **example.com**: Testar grundläggande TCP-anslutning (port 80)
+## Teknisk Implementation
+
+### Function Pointers
+Projektet använder funktionspekare för flexibel hantering:
+
+```c
+// Logger function pointer för olika typer av utskrifter
+typedef void (*logger_t)(const char *message);
+send_sensor_data(&sensor_data, console_log);  // Använder console_log
+send_sensor_data(&sensor_data, debug_log);    // Eller debug_log
+
+// Sensor data generator function pointer
+typedef sensor_data_t (*sensor_generator_t)(void);
+data_generator = generate_auto_sensor_data;
+sensor_data = data_generator();  // Anropar via funktionspekare
+```
+
+### Pekare till Pekare
+Kommandoradshantering med `char **argv`:
+```c
+int main(int argc, char **argv) {
+    if (strcmp(argv[1], "--continuous") == 0) {  // argv[1] access
+        // Kontinuerlig drift
+    }
+}
+```
+
+### TCP/IP Kommunikation
+- **Server**: httpbin.org (port 80)  
+- **Protokoll**: HTTP POST över TCP/IP
+- **Endpoint**: /post
+- **Content-Type**: application/json
 
 ## Exempel på körning
 
+### Kontinuerlig sensorövervakning
 ```bash
-$ make run
-Kompilerar src/main.c...
-Kompilerar src/tcp_client.c...
-Kompilerar src/data_formatter.c...
-Kompilerar src/handlers.c...
-Kompilerar src/pointer_utils.c...
-Länker bin/sensornode...
-Kompilering klar! Kör med: ./bin/sensornode
-./bin/sensornode
+$ ./build/sensornode --continuous
+=== SensorNode Starting ===
+Mode: Continuous measurements every 60 seconds
+Press Ctrl+C to stop
 
-=== SensorNode HTTP POST Client ===
-Utvecklad för att demonstrera:
-- TCP socket-anslutningar
-- HTTP POST-förfrågningar
-- Funktionspekare
-- Pekare till pekare (char **argv och dynamiska listor)
+Measurement: 23.2°C at 2025-11-10T10:15:00Z
+Skickar JSON-data:
+{
+    "device_id": "node001",
+    "timestamp": "2025-11-10T10:15:00Z",
+    "temperature": 23.2
+}
+Data sent (HTTP 200)
+✅ Data transmitted successfully
+Waiting 60 seconds for next measurement...
 
-=== Demonstration av pekare till pekare ===
-1. Kommandoradsargument (char **argv):
-   argv[0] = "./bin/sensornode"
-
-[... mer output ...]
+Measurement: 23.7°C at 2025-11-10T10:16:00Z
+...
 ```
+
+### Enskild mätning med nätverksfel
+```bash
+$ ./build/sensornode --single
+=== SensorNode Starting ===
+Mode: Single measurement
+
+Measurement: 24.1°C at 2025-11-10T10:20:00Z
+Skickar JSON-data:
+{
+    "device_id": "node001", 
+    "timestamp": "2025-11-10T10:20:00Z",
+    "temperature": 24.1
+}
+Network error - no response
+❌ Transmission failed - saving locally
+Data saved: node001,24.1,2025-11-10T10:20:00Z
+```
+
+## Kravspecifikation - Uppfyllelse
+
+✅ **Temperatursensor**: Simulerad sensor med realistiskt beteende  
+✅ **Lokal datalagring**: Textfil för databevarande vid nätverksavbrott  
+✅ **Periodiska mätningar**: Var 60:e sekund enligt krav  
+✅ **Tidsstämpel, enhets-ID, temperatur**: Alla fält inkluderade  
+✅ **Återuppta överföring**: Fortsätter drift efter avbrott utan dataförlust  
+✅ **TCP/IP-kommunikation**: HTTP POST över TCP/IP  
+✅ **JSON-format**: Exakt enligt specifikation  
 
 ## Systemkrav
 
-- GCC compiler
-- Linux/Unix system
-- Internetanslutning för att testa mot externa servrar
+- **Kompilator**: GCC med C99-standard
+- **System**: Linux/Unix
+- **Nätverk**: Internetanslutning för molnkommunikation
+- **Minne**: Minimal användning, lämplig för mikrokontrollers
 
-## Säkerhet
+## Säkerhet och begränsningar
 
-Denna applikation är utvecklad för utbildningssyfte. Använd inte i produktionsmiljöer utan ytterligare säkerhetsförstärkningar.
+- **Utbildningssyfte**: Utvecklad för demonstration och lärande
+- **Oskyddad kommunikation**: HTTP (inte HTTPS) - data kan avlyssnas
+- **Minnesbegränsning**: Ingen automatisk rensning av gamla backupfiler
+- **Miljöfaktorer**: Sensornoggrannhet kan påverkas av externa förhållanden
+
+## Arkitektur
+
+Systemet använder modulär C-design med:
+- **Funktionspekare**: För flexibel felhantering
+- **Strukturerat data**: `sensor_data_t` för typesäkerhet  
+- **Minneshantering**: Korrekt allokering och frigöring
+- **Felåterställning**: Graceful degradation vid nätverksfel

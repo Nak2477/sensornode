@@ -1,18 +1,20 @@
 #define _GNU_SOURCE
 #include "../include/http.h"
-#include "../include/tcp_socket.h"
+#include "../include/tcp.h"
 #include <sys/time.h>
 
-// Hjälpfunktion för att bygga HTTP-förfrågan
-char* build_http_request(const char *path, const char *hostname, 
-                        const char *headers, const char *body) {
+char* build_http_request(const char *path, const char *hostname, const char *headers, const char *body)
+{
     char *request = malloc(BUFFER_SIZE);
     if (!request) {
         return NULL;
     }
-    
+
+    if (!body) {
+        body = "";
+    }
     int content_length = strlen(body);
-    
+
     snprintf(request, BUFFER_SIZE,
         "POST %s HTTP/1.1\r\n"
         "Host: %s\r\n"
@@ -24,12 +26,12 @@ char* build_http_request(const char *path, const char *hostname,
         headers ? headers : "Content-Type: application/json",
         content_length, 
         body);
-    
+
     return request;
 }
 
-// Hjälpfunktion för att ta emot HTTP-svar
-char* receive_http_response(int sockfd) {
+char* receive_http_response(int sockfd)
+{
     char *response_buffer = malloc(MAX_RESPONSE_SIZE);
     if (!response_buffer) {
         fprintf(stderr, "ERROR: Kunde inte allokera minne för svar\n");
@@ -39,9 +41,8 @@ char* receive_http_response(int sockfd) {
     ssize_t total_received = 0;
     ssize_t bytes_received;
     
-    // Sätt en timeout för recv
     struct timeval timeout;
-    timeout.tv_sec = 5;  // 5 sekunder timeout
+    timeout.tv_sec = 5;  // 5 sekunder timeout 
     timeout.tv_usec = 0;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     
@@ -68,25 +69,22 @@ char* receive_http_response(int sockfd) {
     return response_buffer;
 }
 
-// Hjälpfunktion för att parsa HTTP-svar
-http_response_t* parse_http_response(char *response_buffer) {
+http_response_t* parse_http_response(char *response_buffer)
+{
     http_response_t *response = malloc(sizeof(http_response_t));
     if (!response) {
         return NULL;
     }
     
-    // Initiera värden
     response->status_code = 0;
     response->headers = NULL;
     response->body = NULL;
     response->body_length = 0;
     
-    // Kontrollera att vi har ett svar
     if (!response_buffer || strlen(response_buffer) == 0) {
         return response;
     }
     
-    // Hitta början av body (efter tomma raden) FÖRST
     char *body_start = strstr(response_buffer, "\r\n\r\n");
     if (body_start) {
         body_start += 4; // Hoppa över \r\n\r\n
@@ -106,7 +104,6 @@ http_response_t* parse_http_response(char *response_buffer) {
         response->headers = strdup(response_buffer);
     }
     
-    // Extrahera statuskod från en kopia
     if (strncmp(response_buffer, "HTTP/", 5) == 0) {
         char *response_copy = strdup(response_buffer);
         char *status_line = strtok(response_copy, "\r\n");
@@ -119,55 +116,33 @@ http_response_t* parse_http_response(char *response_buffer) {
     return response;
 }
 
-// Skriv ut HTTP-svar
-void print_http_response(const http_response_t *response) {
-    if (!response) {
-        printf("Inget svar mottaget\n");
-        return;
-    }
+http_response_t* send_http_post_with_response(const char *hostname, int port, const char *path, const char *headers, const char *body) {
     
-    printf("HTTP Status: %d\n", response->status_code);
-    printf("Svarslängd: %zu bytes\n", response->body_length);
-    printf("\nHeaders:\n%s\n", response->headers ? response->headers : "Inga headers");
-    printf("\nBody:\n%s\n", response->body ? response->body : "Ingen body");
-}
-
-// Frigör minnet för HTTP-svar
-void free_http_response(http_response_t *response) {
-    if (response) {
-        free(response->headers);
-        free(response->body);
-        free(response);
-    }
-}
-
-// Skicka HTTP POST och ta emot svar
-http_response_t* send_http_post_with_response(const char *hostname, int port, const char *path, 
-                                            const char *headers, const char *body) {
-    // Skapa TCP-anslutning
     int sockfd = create_tcp_connection(hostname, port);
     if (sockfd < 0) {
         return NULL;
     }
     
-    // Bygg HTTP POST-förfrågan
     char *request = build_http_request(path, hostname, headers, body);
     if (!request) {
         close(sockfd);
         return NULL;
     }
     
-    // Skicka förfrågan
-    ssize_t sent = send(sockfd, request, strlen(request), 0);
+    size_t total_sent = 0;
+    size_t request_len = strlen(request);
+    while (total_sent < request_len) {
+        ssize_t sent = send(sockfd, request + total_sent, request_len - total_sent, 0);
+        if (sent < 0) {
+            perror("ERROR: Kunde inte skicka data");
+            free(request);
+            close(sockfd);
+            return NULL;
+        }
+        total_sent += sent;
+    }
     free(request);
     
-    if (sent < 0) {
-        perror("ERROR: Kunde inte skicka data");
-        close(sockfd);
-        return NULL;
-    }
-    
-    // Ta emot svar
     char *response_buffer = receive_http_response(sockfd);
     close(sockfd);
     
@@ -175,9 +150,16 @@ http_response_t* send_http_post_with_response(const char *hostname, int port, co
         return NULL;
     }
     
-    // Parsa HTTP-svar
     http_response_t *response = parse_http_response(response_buffer);
     free(response_buffer);
     
     return response;
+}
+
+void free_http_response(http_response_t *response) {
+    if (response) {
+        free(response->headers);
+        free(response->body);
+        free(response);
+    }
 }

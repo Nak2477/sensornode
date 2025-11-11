@@ -9,7 +9,7 @@ LDFLAGS =
 SRCDIR = src
 INCDIR = include
 OBJDIR = obj
-BINDIR = bin
+BINDIR = build
 
 # Målprogrammets namn
 TARGET = $(BINDIR)/sensornode
