@@ -5,7 +5,7 @@
 void print_usage(const char *program_name)
 {
     printf("Användning: %s [options]\n", program_name);
-    printf("  --continuous, -c - Kontinuerliga mätningar var 60:e sekund\n");
+    printf("  --continuous, -c - Kontinuerliga mätningar\n");
     printf("  --single [temp]  - En enskild mätning (standard: sensor)\n");
     printf("  --help, -h       - Visa denna hjälp\n");
     printf("\nExempel:\n");
@@ -18,7 +18,8 @@ int main(int argc, char **argv)
 {
     srand(time(NULL));
     
-    // Parse command line arguments
+    int measurement_interval = load_measurement_interval();
+
     int continuous_mode = 0;  // Default: single measurement
     double manual_temperature = 0.0;
     int use_manual_temp = 0;
@@ -42,7 +43,7 @@ int main(int argc, char **argv)
     
     printf("=== SensorNode Starting ===\n");
     if (continuous_mode) {
-        printf("Mode: Continuous measurements every 60 seconds\n");
+        printf("Mode: Continuous measurements every %d seconds\n", measurement_interval);
         printf("Press Ctrl+C to stop\n\n");
     } else {
         printf("Mode: Single measurement\n\n");
@@ -86,10 +87,9 @@ int main(int argc, char **argv)
             free(sensor_data.timestamp);
         }
         
-        // Sleep for 60 seconds if in continuous mode
         if (continuous_mode) {
-            printf("Waiting 60 seconds for next measurement...\n\n");
-            sleep(60);
+            printf("Waiting %d seconds for next measurement...\n", measurement_interval);
+            sleep(measurement_interval);
         }
         
     } while (continuous_mode);

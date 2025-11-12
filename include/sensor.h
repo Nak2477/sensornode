@@ -24,6 +24,9 @@ typedef struct {
     double temperature;
 } sensor_data_t;
 
+
+int load_measurement_interval(void);
+
 // Function pointer type for logging
 typedef void (*logger_t)(const char *message);
 

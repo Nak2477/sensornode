@@ -3,6 +3,30 @@
 #include <stdlib.h>
 //#include <uuid/uuid.h>
 
+int load_measurement_interval(void) {
+    FILE* config_file = fopen("bin/config.txt", "r");
+    int interval = 60;  // Default
+    
+    if (config_file) {
+        char line[100];
+        while (fgets(line, sizeof(line), config_file)) {
+
+            if (line[0] == '#') continue;
+            
+            if (strncmp(line, "measurement_interval=", 21) == 0) {
+                interval = atoi(line + 21);  // dont touch my config
+                break;
+            }
+        }
+        fclose(config_file);
+        printf("Loaded interval: %d seconds from config.txt\n", interval);
+    } else {
+        printf("Config file not found, using default: %d seconds\n", interval);
+    }
+    
+    return interval;
+}
+
 void console_log(const char *message)
 {
     printf("%s\n", message);
