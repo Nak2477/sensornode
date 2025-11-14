@@ -5,13 +5,14 @@
 void print_usage(const char *program_name)
 {
     printf("Användning: %s [options]\n", program_name);
-    printf("  --continuous, -c - Kontinuerliga mätningar\n");
-    printf("  --single [temp]  - En enskild mätning (standard: sensor)\n");
-    printf("  --help, -h       - Visa denna hjälp\n");
+    printf("  --continuous, -c [interval] - Kontinuerliga mätningar (valfritt intervall 1-120s)\n");
+    printf("  --single [temp]             - En enskild mätning (standard: sensor)\n");
+    printf("  --help, -h                  - Visa denna hjälp\n");
     printf("\nExempel:\n");
-    printf("  %s --continuous     # Kör kontinuerligt\n", program_name);
-    printf("  %s --single 25.3    # En mätning med 25.3°C\n", program_name);
-    printf("  %s --single         # En mätning med sensorsimulering\n", program_name);
+    printf("  %s --continuous       # Kör med config-intervall\n", program_name);
+    printf("  %s -c 30              # Kör med 30 sekunders intervall\n", program_name);
+    printf("  %s --single 25.3      # En mätning med 25.3°C\n", program_name);
+    printf("  %s --single           # En mätning med sensorsimulering\n", program_name);
 }
 
 int main(int argc, char **argv)
@@ -30,6 +31,17 @@ int main(int argc, char **argv)
             return 0;
         } else if (strcmp(argv[1], "--continuous") == 0 || strcmp(argv[1], "-c") == 0) {
             continuous_mode = 1;
+            // Check if interval is provided: -c 30
+            if (argc > 2) {
+                int override_interval = atoi(argv[2]);
+                if (override_interval >= 1 && override_interval <= 120) {
+                    measurement_interval = override_interval;
+                    printf("Using command-line interval: %d seconds\n", measurement_interval);
+                } else {
+                    printf("Invalid interval %d, using config value: %d seconds\n", 
+                           override_interval, measurement_interval);
+                }
+            }
         } else if (strcmp(argv[1], "--single") == 0) {
             if (argc > 2) {
                 manual_temperature = atof(argv[2]);
@@ -50,7 +62,7 @@ int main(int argc, char **argv)
     }
 
     do {
-        // Choose sensor data generator using function pointer
+
         sensor_generator_t data_generator;
         sensor_data_t sensor_data;
         
@@ -73,7 +85,7 @@ int main(int argc, char **argv)
         printf("Measurement: %.1f°C at %s\n", sensor_data.temperature, sensor_data.timestamp);
         
         
-        if (send_sensor_data(&sensor_data, console_log) == 0)
+        if (send_sensor_data(&sensor_data) == 0)
         {
             printf("Data sent to server\n");
         } else 

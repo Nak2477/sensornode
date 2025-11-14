@@ -14,7 +14,16 @@ int load_measurement_interval(void) {
             if (line[0] == '#') continue;
             
             if (strncmp(line, "measurement_interval=", 21) == 0) {
-                interval = atoi(line + 21);  // dont touch my config
+                interval = atoi(line + 21);
+                
+                // Validate interval: must be between 1 and 120 seconds
+                if (interval < 1) {
+                    printf("Warning: Interval %d too small, using minimum: 1 second\n", interval);
+                    interval = 1;
+                } else if (interval > 120) {
+                    printf("Warning: Interval %d too large, using maximum: 120 seconds\n", interval);
+                    interval = 120;
+                }
                 break;
             }
         }
@@ -121,18 +130,19 @@ char* format_json_sensor_data(const sensor_data_t *data)
     
     return json;
 }
-
-int send_sensor_data(const sensor_data_t *data, logger_t log_func)
+ //hardcoded to /post line 147
+int send_sensor_data(const sensor_data_t *data)
 {
 
     char *formatted_data = format_json_sensor_data(data);
     if (!formatted_data) {
-        log_func("Failed to format sensor data");
+        printf("Failed to format sensor data\n");
         return -1;
     }
     printf("Skickar JSON-data:\n%s\n", formatted_data);
-    log_func("Sending data to httpbin.org server");
+    printf("Sending data to %s server\n", SERVER_HOST);
     
+
     http_response_t *response = send_http_post_with_response(
         SERVER_HOST, SERVER_PORT, "/post", 
         "Content-Type: application/json",
@@ -151,18 +161,18 @@ int send_sensor_data(const sensor_data_t *data, logger_t log_func)
         if (response->status_code >= 200 && response->status_code < 300)
         {
         printf("Data sent (HTTP %d)\n", response->status_code);
-        log_func("SUCCESS: Data successfully sent to server");
+        printf("SUCCESS: Data successfully sent to server\n");
         free_http_response(response);
         return 0;
         } else
         {
-            log_func("ERROR: Server returned error status: ");
+            printf("ERROR: Server returned error status\n");
             printf("Server error (HTTP %d)\n", response->status_code);
         free_http_response(response);
         return -1;
         }
     } else {
-        log_func("ERROR: No response from server");
+        printf("ERROR: No response from server\n");
         return -1;
     }
 }

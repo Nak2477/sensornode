@@ -27,9 +27,6 @@ typedef struct {
 
 int load_measurement_interval(void);
 
-// Function pointer type for logging
-typedef void (*logger_t)(const char *message);
-
 // Function pointer type for sensor data generation
 typedef sensor_data_t (*sensor_generator_t)(void);
 
@@ -45,7 +42,7 @@ void debug_log(const char *message);
 
 char* format_json_sensor_data(const sensor_data_t *data);
 
-int send_sensor_data(const sensor_data_t *data, logger_t log_func);
+int send_sensor_data(const sensor_data_t *data);
 int save_sensor_data_to_file(const char* device_id, double temperature, const char* timestamp);
 
 //int clear_sent_data();
