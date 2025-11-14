@@ -5,7 +5,7 @@
 
 char* build_http_request(const char *path, const char *hostname, const char *headers, const char *body)
 {
-    char *request = malloc(BUFFER_SIZE);
+    char *request = malloc(BUFFER_SIZE +1);
     if (!request) {
         return NULL;
     }
@@ -135,7 +135,6 @@ http_response_t* send_http_post_with_response(const char *hostname, int port, co
         ssize_t sent = send(sockfd, request + total_sent, request_len - total_sent, 0);
         if (sent < 0) {
             perror("ERROR: Kunde inte skicka data");
-            free(request);
             close(sockfd);
             return NULL;
         }

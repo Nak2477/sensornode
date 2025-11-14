@@ -36,14 +36,6 @@ int load_measurement_interval(void) {
     return interval;
 }
 
-void console_log(const char *message)
-{
-    printf("%s\n", message);
-}
-void debug_log(const char *message)
-{
-    printf("DEBUG: %s\n", message);
-}
 
 sensor_data_t generate_auto_sensor_data(void)
 {

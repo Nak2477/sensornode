@@ -37,8 +37,6 @@ char* Generate_Device_Id(void);
 double Random_temperature_sensor(void);
 char* get_current_timestamp(void);
 
-void console_log(const char *message);
-void debug_log(const char *message);
 
 char* format_json_sensor_data(const sensor_data_t *data);
 
